@@ -1,0 +1,37 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\rays\\Desktop\\MAUI\\TejasCareConnect\\TejasCareConnect\\obj\\Debug\\net9.0-windows10.0.19041.0\\win10-x64\\scopedcss\\bundle\\TejasCareConnect.styles.css",
+      "PackagePath": "staticwebassets\\TejasCareConnect.styles.css"
+    },
+    {
+      "Id": "C:\\Users\\rays\\Desktop\\MAUI\\TejasCareConnect\\TejasCareConnect\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "C:\\Users\\rays\\Desktop\\MAUI\\TejasCareConnect\\TejasCareConnect\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0-windows10.0.19041.0\\win10-x64\\staticwebassets\\msbuild.TejasCareConnect.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0-windows10.0.19041.0\\win10-x64\\staticwebassets\\msbuild.TejasCareConnect.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0-windows10.0.19041.0\\win10-x64\\staticwebassets\\msbuild.build.TejasCareConnect.props",
+      "PackagePath": "build\\TejasCareConnect.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0-windows10.0.19041.0\\win10-x64\\staticwebassets\\msbuild.buildMultiTargeting.TejasCareConnect.props",
+      "PackagePath": "buildMultiTargeting\\TejasCareConnect.props"
+    },
+    {
+      "Id": "obj\\Debug\\net9.0-windows10.0.19041.0\\win10-x64\\staticwebassets\\msbuild.buildTransitive.TejasCareConnect.props",
+      "PackagePath": "buildTransitive\\TejasCareConnect.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

@@ -1,0 +1,202 @@
+﻿@using TejasCareConnect.Shared.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">TejasCareConnect</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <AuthorizeView>
+            <Authorized Context="authContext">
+                <div class="user-info px-3">
+                    <p class="text-white mb-1"><strong>@authContext.User.Identity?.Name</strong></p>
+                    <p class="text-white-50 mb-0 small">@authContext.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</p>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                    </NavLink>
+                </div>
+
+                <AuthorizeView Roles="Admin,Contributor" Context="contributorAuth">
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="add-patient">
+                                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Add Patient
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="patient-records">
+                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Patient Records
+                    </NavLink>
+                </div>
+
+                <AuthorizeView Roles="Admin" Context="adminAuth">
+                    <Authorized>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="users">
+                                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> User Management
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+
+                <div class="nav-item px-3">
+                    <a class="nav-link" @onclick="ShowChangePasswordDialog" style="cursor: pointer;">
+                        <span class="bi bi-key-fill-nav-menu" aria-hidden="true"></span> Change Password
+                    </a>
+                </div>
+
+                <div class="nav-item px-3">
+                    <a class="nav-link" @onclick="HandleLogout" style="cursor: pointer;">
+                        <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
+                    </a>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="login">
+                        <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+<!-- Change Password Modal -->
+@if (showChangePasswordModal)
+{
+    <div class="modal-overlay" @onclick="CloseChangePasswordModal">
+        <div class="modal-content" @onclick:stopPropagation>
+            <h3>Change Password</h3>
+            <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" @bind="currentPassword" class="form-control" placeholder="Enter current password" />
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" @bind="newPassword" class="form-control" placeholder="Enter new password" />
+                <small class="text-muted">Minimum 6 characters</small>
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" @bind="confirmPassword" class="form-control" placeholder="Confirm new password" />
+            </div>
+            @if (!string.IsNullOrEmpty(passwordError))
+            {
+                <div class="alert alert-danger">@passwordError</div>
+            }
+            @if (!string.IsNullOrEmpty(passwordSuccess))
+            {
+                <div class="alert alert-success">@passwordSuccess</div>
+            }
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="CloseChangePasswordModal">Cancel</button>
+                <button class="btn btn-primary" @onclick="ChangePassword" disabled="@isChangingPassword">
+                    @if (isChangingPassword)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Change Password
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showChangePasswordModal = false;
+    private string currentPassword = string.Empty;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string passwordError = string.Empty;
+    private string passwordSuccess = string.Empty;
+    private bool isChangingPassword = false;
+
+    private void ShowChangePasswordDialog()
+    {
+        showChangePasswordModal = true;
+        currentPassword = string.Empty;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+        passwordError = string.Empty;
+        passwordSuccess = string.Empty;
+    }
+
+    private void CloseChangePasswordModal()
+    {
+        showChangePasswordModal = false;
+        currentPassword = string.Empty;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+        passwordError = string.Empty;
+        passwordSuccess = string.Empty;
+    }
+
+    private async Task ChangePassword()
+    {
+        passwordError = string.Empty;
+        passwordSuccess = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentPassword))
+        {
+            passwordError = "Current password is required";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+        {
+            passwordError = "New password must be at least 6 characters";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            passwordError = "Passwords do not match";
+            return;
+        }
+
+        try
+        {
+            isChangingPassword = true;
+            var response = await AuthService.ChangePasswordAsync(currentPassword, newPassword);
+            
+            if (response.Success)
+            {
+                passwordSuccess = "Password changed successfully!";
+                await Task.Delay(1500);
+                CloseChangePasswordModal();
+            }
+            else
+            {
+                passwordError = response.Message ?? "Failed to change password";
+            }
+        }
+        catch (Exception ex)
+        {
+            passwordError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isChangingPassword = false;
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}
+

@@ -1,0 +1,211 @@
+@page "/login"
+@using TejasCareConnect.Shared.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<div class="login-container">
+    <div class="login-card">
+        <h2>TejasCare Connect</h2>
+        <h4>Sign In</h4>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                @errorMessage
+            </div>
+        }
+
+        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+            <DataAnnotationsValidator />
+            
+            <div class="form-group">
+                <label>Email</label>
+                <InputText @bind-Value="loginModel.Email" class="form-control" placeholder="Enter your email" />
+                <ValidationMessage For="@(() => loginModel.Email)" />
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <InputText @bind-Value="loginModel.Password" type="password" class="form-control" placeholder="Enter your password" />
+                <ValidationMessage For="@(() => loginModel.Password)" />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> Signing in...</span>
+                }
+                else
+                {
+                    <span>Sign In</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="login-info">
+            <p><strong>Default Admin Credentials:</strong></p>
+            <p>Email: admin@tejascare.com</p>
+            <p>Password: Admin123!</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if already authenticated
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var response = await AuthService.LoginAsync(loginModel.Email, loginModel.Password);
+
+            if (response.Success)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = response.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class LoginModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .login-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .login-card h2 {
+        color: #667eea;
+        margin-bottom: 0.5rem;
+        text-align: center;
+    }
+
+    .login-card h4 {
+        color: #666;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1rem;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn-block {
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .btn-primary {
+        background-color: #667eea;
+        border: none;
+        padding: 0.75rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #5568d3;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .alert {
+        padding: 0.75rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+
+    .alert-danger {
+        background-color: #fee;
+        color: #c33;
+        border: 1px solid #fcc;
+    }
+
+    .login-info {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        font-size: 0.875rem;
+    }
+
+    .login-info p {
+        margin: 0.25rem 0;
+        color: #666;
+    }
+
+    .login-info strong {
+        color: #333;
+    }
+</style>

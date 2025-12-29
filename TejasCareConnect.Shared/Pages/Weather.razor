@@ -1,0 +1,868 @@
+﻿@page "/weather"
+@using TejasCareConnect.Shared.Services
+@inject IPatientService PatientService
+
+<PageTitle>Patient Records</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="patients-container">
+            <div class="header">
+                <h1>Patient Records - EHR System</h1>
+                <p>Electronic Health Records Database - 1000 Patients</p>
+            </div>
+
+            <div class="controls">
+                <div class="search-box">
+                    <input type="text" 
+                           @bind="searchTerm" 
+                           @bind:event="oninput"
+                           placeholder="Search by name, MRN, or email..." 
+                           class="search-input" />
+                    <button @onclick="SearchPatients" class="btn btn-primary">Search</button>
+                </div>
+                <div class="filter-box">
+                    <select @bind="statusFilter" @bind:after="SearchPatients" class="filter-select">
+                        <option value="">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Discharged">Discharged</option>
+                    </select>
+                </div>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="loading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p><em>Loading patient records...</em></p>
+                </div>
+            }
+            else if (patients != null && patients.Any())
+            {
+                <div class="stats-bar">
+                    <span>Showing {patients.Count} patients</span>
+                    <div class="page-controls">
+                        <button @onclick="PreviousPage" disabled="@(currentPage <= 1)" class="btn btn-secondary btn-sm">Previous</button>
+                        <span class="page-info">Page @currentPage</span>
+                        <button @onclick="NextPage" disabled="@(patients.Count < pageSize)" class="btn btn-secondary btn-sm">Next</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="patients-table">
+                        <thead>
+                            <tr>
+                                <th>MRN</th>
+                                <th>Name</th>
+                                <th>Age</th>
+                                <th>Gender</th>
+                                <th>Blood Type</th>
+                                <th>Primary Physician</th>
+                                <th>Last Visit</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var patient in patients)
+                            {
+                                <tr>
+                                    <td><span class="mrn-badge">@patient.MRN</span></td>
+                                    <td><strong>@patient.FullName</strong></td>
+                                    <td>@patient.Age</td>
+                                    <td>@patient.Gender</td>
+                                    <td><span class="blood-type-badge">@patient.BloodType</span></td>
+                                    <td>@patient.PrimaryPhysician</td>
+                                    <td>@patient.LastVisitDate.ToString("MMM dd, yyyy")</td>
+                                    <td>
+                                        <span class="status-badge status-@patient.Status.ToLower()">
+                                            @patient.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button @onclick="() => ShowPatientDetails(patient.Id)" class="btn btn-sm btn-info">
+                                            View Details
+                                        </button>
+                                        <AuthorizeView Roles="Admin,Contributor" Context="editAuth">
+                                            <Authorized>
+                                                <button @onclick="() => ShowEditModal(patient.Id)" class="btn btn-sm btn-warning">
+                                                    Edit
+                                                </button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="no-data">
+                    <p>No patients found matching your criteria.</p>
+                </div>
+            }
+
+            @if (selectedPatient != null)
+            {
+                <div class="modal-overlay" @onclick="CloseModal">
+                    <div class="modal-content patient-details" @onclick:stopPropagation>
+                        <div class="modal-header">
+                            <h3>Patient Details</h3>
+                            <button @onclick="CloseModal" class="close-btn">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="detail-section">
+                                <h4>Personal Information</h4>
+                                <div class="detail-grid">
+                                    <div><strong>MRN:</strong> @selectedPatient.MRN</div>
+                                    <div><strong>Name:</strong> @selectedPatient.FullName</div>
+                                    <div><strong>DOB:</strong> @selectedPatient.DateOfBirth.ToString("MM/dd/yyyy")</div>
+                                    <div><strong>Age:</strong> @selectedPatient.Age years</div>
+                                    <div><strong>Gender:</strong> @selectedPatient.Gender</div>
+                                    <div><strong>Blood Type:</strong> @selectedPatient.BloodType</div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4>Contact Information</h4>
+                                <div class="detail-grid">
+                                    <div><strong>Phone:</strong> @selectedPatient.PhoneNumber</div>
+                                    <div><strong>Email:</strong> @selectedPatient.Email</div>
+                                    <div><strong>Address:</strong> @selectedPatient.Address</div>
+                                    <div><strong>City:</strong> @selectedPatient.City, @selectedPatient.State @selectedPatient.ZipCode</div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4>Emergency Contact</h4>
+                                <div class="detail-grid">
+                                    <div><strong>Name:</strong> @selectedPatient.EmergencyContact</div>
+                                    <div><strong>Phone:</strong> @selectedPatient.EmergencyPhone</div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4>Medical Information</h4>
+                                <div class="detail-grid">
+                                    <div><strong>Primary Physician:</strong> @selectedPatient.PrimaryPhysician</div>
+                                    <div><strong>Allergies:</strong> @selectedPatient.Allergies</div>
+                                    <div><strong>Chronic Conditions:</strong> @selectedPatient.ChronicConditions</div>
+                                    <div><strong>Current Medications:</strong> @selectedPatient.CurrentMedications</div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4>Insurance Information</h4>
+                                <div class="detail-grid">
+                                    <div><strong>Provider:</strong> @selectedPatient.InsuranceProvider</div>
+                                    <div><strong>Policy Number:</strong> @selectedPatient.InsurancePolicyNumber</div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4>Visit History</h4>
+                                <div class="detail-grid">
+                                    <div><strong>Last Visit:</strong> @selectedPatient.LastVisitDate.ToString("MMM dd, yyyy")</div>
+                                    <div><strong>Reason:</strong> @selectedPatient.LastVisitReason</div>
+                                    <div><strong>Admission Date:</strong> @selectedPatient.AdmissionDate.ToString("MMM dd, yyyy")</div>
+                                    <div><strong>Status:</strong> <span class="status-badge status-@selectedPatient.Status.ToLower()">@selectedPatient.Status</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (editingPatient != null)
+            {
+                <div class="modal-overlay" @onclick="CloseEditModal">
+                    <div class="modal-content edit-patient" @onclick:stopPropagation>
+                        <div class="modal-header">
+                            <h3>Edit Patient - @editingPatient.MRN</h3>
+                            <button @onclick="CloseEditModal" class="close-btn">×</button>
+                        </div>
+                        <div class="modal-body">
+                            @if (!string.IsNullOrEmpty(editSuccessMessage))
+                            {
+                                <div class="alert alert-success">
+                                    @editSuccessMessage
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(editErrorMessage))
+                            {
+                                <div class="alert alert-danger">
+                                    @editErrorMessage
+                                </div>
+                            }
+
+                            <EditForm Model="@updatePatient" OnValidSubmit="@HandleUpdate" Context="editFormContext">
+                                <h4>Personal Information</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>First Name *</label>
+                                        <InputText @bind-Value="updatePatient.FirstName" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Last Name *</label>
+                                        <InputText @bind-Value="updatePatient.LastName" class="form-control" required />
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Date of Birth *</label>
+                                        <InputDate @bind-Value="updatePatient.DateOfBirth" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Gender *</label>
+                                        <InputSelect @bind-Value="updatePatient.Gender" class="form-control" required>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </InputSelect>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Blood Type *</label>
+                                        <InputSelect @bind-Value="updatePatient.BloodType" class="form-control" required>
+                                            <option value="A+">A+</option>
+                                            <option value="A-">A-</option>
+                                            <option value="B+">B+</option>
+                                            <option value="B-">B-</option>
+                                            <option value="AB+">AB+</option>
+                                            <option value="AB-">AB-</option>
+                                            <option value="O+">O+</option>
+                                            <option value="O-">O-</option>
+                                        </InputSelect>
+                                    </div>
+                                </div>
+
+                                <h4>Contact Information</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Phone *</label>
+                                        <InputText @bind-Value="updatePatient.PhoneNumber" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Email *</label>
+                                        <InputText @bind-Value="updatePatient.Email" class="form-control" required />
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Address *</label>
+                                    <InputText @bind-Value="updatePatient.Address" class="form-control" required />
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>City *</label>
+                                        <InputText @bind-Value="updatePatient.City" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>State *</label>
+                                        <InputText @bind-Value="updatePatient.State" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Zip Code *</label>
+                                        <InputText @bind-Value="updatePatient.ZipCode" class="form-control" required />
+                                    </div>
+                                </div>
+
+                                <h4>Emergency Contact</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Emergency Contact *</label>
+                                        <InputText @bind-Value="updatePatient.EmergencyContact" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Emergency Phone *</label>
+                                        <InputText @bind-Value="updatePatient.EmergencyPhone" class="form-control" required />
+                                    </div>
+                                </div>
+
+                                <h4>Medical Information</h4>
+                                <div class="form-group">
+                                    <label>Primary Physician *</label>
+                                    <InputText @bind-Value="updatePatient.PrimaryPhysician" class="form-control" required />
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Insurance Provider *</label>
+                                        <InputText @bind-Value="updatePatient.InsuranceProvider" class="form-control" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Policy Number *</label>
+                                        <InputText @bind-Value="updatePatient.InsurancePolicyNumber" class="form-control" required />
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Allergies</label>
+                                    <InputTextArea @bind-Value="updatePatient.Allergies" class="form-control" rows="2" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Chronic Conditions</label>
+                                    <InputTextArea @bind-Value="updatePatient.ChronicConditions" class="form-control" rows="2" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Current Medications</label>
+                                    <InputTextArea @bind-Value="updatePatient.CurrentMedications" class="form-control" rows="2" />
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Last Visit Reason</label>
+                                        <InputText @bind-Value="updatePatient.LastVisitReason" class="form-control" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Status *</label>
+                                        <InputSelect @bind-Value="updatePatient.Status" class="form-control" required>
+                                            <option value="Active">Active</option>
+                                            <option value="Discharged">Discharged</option>
+                                        </InputSelect>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary" disabled="@isUpdating">
+                                        @if (isUpdating)
+                                        {
+                                            <span>Updating...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>💾 Save Changes</span>
+                                        }
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" @onclick="CloseEditModal" disabled="@isUpdating">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="unauthorized">
+            <h3>Authentication Required</h3>
+            <p>Please log in to view patient records.</p>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private List<PatientListDto>? patients;
+    private PatientDetailDto? selectedPatient;
+    private PatientDetailDto? editingPatient;
+    private UpdatePatientDto updatePatient = new();
+    private bool isLoading = true;
+    private bool isUpdating = false;
+    private string searchTerm = string.Empty;
+    private string statusFilter = string.Empty;
+    private int currentPage = 1;
+    private int pageSize = 50;
+    private string? editSuccessMessage;
+    private string? editErrorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatients();
+    }
+
+    private async Task LoadPatients()
+    {
+        isLoading = true;
+        var response = await PatientService.GetPatientsAsync(currentPage, pageSize, 
+            string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm,
+            string.IsNullOrWhiteSpace(statusFilter) ? null : statusFilter);
+        
+        if (response.Success && response.Data != null)
+        {
+            patients = response.Data;
+        }
+        isLoading = false;
+    }
+
+    private async Task SearchPatients()
+    {
+        currentPage = 1;
+        await LoadPatients();
+    }
+
+    private async Task NextPage()
+    {
+        currentPage++;
+        await LoadPatients();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await LoadPatients();
+        }
+    }
+
+    private async Task ShowPatientDetails(int patientId)
+    {
+        var response = await PatientService.GetPatientByIdAsync(patientId);
+        if (response.Success && response.Data != null)
+        {
+            selectedPatient = response.Data;
+        }
+    }
+
+    private void CloseModal()
+    {
+        selectedPatient = null;
+    }
+
+    private async Task ShowEditModal(int patientId)
+    {
+        var response = await PatientService.GetPatientByIdAsync(patientId);
+        if (response.Success && response.Data != null)
+        {
+            editingPatient = response.Data;
+            updatePatient = new UpdatePatientDto
+            {
+                FirstName = editingPatient.FirstName,
+                LastName = editingPatient.LastName,
+                DateOfBirth = editingPatient.DateOfBirth,
+                Gender = editingPatient.Gender,
+                BloodType = editingPatient.BloodType,
+                PhoneNumber = editingPatient.PhoneNumber,
+                Email = editingPatient.Email,
+                Address = editingPatient.Address,
+                City = editingPatient.City,
+                State = editingPatient.State,
+                ZipCode = editingPatient.ZipCode,
+                EmergencyContact = editingPatient.EmergencyContact,
+                EmergencyPhone = editingPatient.EmergencyPhone,
+                PrimaryPhysician = editingPatient.PrimaryPhysician,
+                InsuranceProvider = editingPatient.InsuranceProvider,
+                InsurancePolicyNumber = editingPatient.InsurancePolicyNumber,
+                Allergies = editingPatient.Allergies,
+                ChronicConditions = editingPatient.ChronicConditions,
+                CurrentMedications = editingPatient.CurrentMedications,
+                LastVisitReason = editingPatient.LastVisitReason,
+                Status = editingPatient.Status
+            };
+            editSuccessMessage = null;
+            editErrorMessage = null;
+        }
+    }
+
+    private async Task HandleUpdate()
+    {
+        if (editingPatient == null) return;
+
+        isUpdating = true;
+        editSuccessMessage = null;
+        editErrorMessage = null;
+
+        try
+        {
+            var response = await PatientService.UpdatePatientAsync(editingPatient.Id, updatePatient);
+
+            if (response.Success)
+            {
+                editSuccessMessage = "Patient updated successfully!";
+                await Task.Delay(1500);
+                CloseEditModal();
+                await LoadPatients();
+            }
+            else
+            {
+                editErrorMessage = response.Message ?? "Failed to update patient";
+            }
+        }
+        catch (Exception ex)
+        {
+            editErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+
+    private void CloseEditModal()
+    {
+        editingPatient = null;
+        updatePatient = new();
+        editSuccessMessage = null;
+        editErrorMessage = null;
+    }
+}
+
+<style>
+    .patients-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .header {
+        margin-bottom: 2rem;
+    }
+
+    .header h1 {
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .header p {
+        color: #7f8c8d;
+        font-size: 1.1rem;
+    }
+
+    .controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .search-input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .filter-select {
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        min-width: 150px;
+    }
+
+    .stats-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    .page-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .page-info {
+        font-weight: 600;
+    }
+
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    .patients-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .patients-table thead {
+        background-color: #34495e;
+        color: white;
+    }
+
+    .patients-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .patients-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #ecf0f1;
+    }
+
+    .patients-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .mrn-badge {
+        background-color: #3498db;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .blood-type-badge {
+        background-color: #e74c3c;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-active {
+        background-color: #27ae60;
+        color: white;
+    }
+
+    .status-discharged {
+        background-color: #95a5a6;
+        color: white;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        overflow-y: auto;
+        padding: 2rem;
+    }
+
+    .modal-content.patient-details {
+        background: white;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 900px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        border-bottom: 2px solid #ecf0f1;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: #2c3e50;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: #95a5a6;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .close-btn:hover {
+        color: #e74c3c;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .detail-section {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+    }
+
+    .detail-section h4 {
+        margin-top: 0;
+        margin-bottom: 1rem;
+        color: #34495e;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 0.5rem;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .detail-grid div {
+        padding: 0.5rem 0;
+    }
+
+    .loading, .no-data, .unauthorized {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        border: 0.3rem solid #f3f3f3;
+        border-top: 0.3rem solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: opacity 0.2s;
+    }
+
+    .btn:hover:not(:disabled) {
+        opacity: 0.8;
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+
+    .btn-secondary {
+        background-color: #95a5a6;
+        color: white;
+    }
+
+    .btn-info {
+        background-color: #16a085;
+        color: white;
+    }
+
+    .btn-warning {
+        background-color: #f39c12;
+        color: white;
+        margin-left: 0.5rem;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .edit-patient {
+        max-width: 900px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .edit-patient h4 {
+        color: #0066cc;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+        font-size: 1.1rem;
+    }
+
+    .edit-patient h4:first-of-type {
+        margin-top: 0;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 2px solid #e9ecef;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+</style>

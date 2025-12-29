@@ -1,0 +1,637 @@
+@page "/users"
+@using TejasCareConnect.Shared.Models
+@using TejasCareConnect.Shared.Services
+@inject IAuthenticationService AuthService
+@inject IUserService UserService
+@inject NavigationManager Navigation
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <PageTitle>User Management</PageTitle>
+
+        <div class="user-management">
+            <div class="header">
+                <h2>User Management</h2>
+                <button class="btn btn-primary" @onclick="ShowAddUserDialog">
+                    <span class="icon">➕</span> Add New User
+                </button>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="loading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Loading users...</p>
+                </div>
+            }
+            else if (users.Any())
+            {
+                <div class="users-grid">
+                    @foreach (var user in users)
+                    {
+                        <div class="user-card">
+                            <div class="user-header">
+                                <div class="user-info">
+                                    <h4>@user.FullName</h4>
+                                    <p class="email">@user.Email</p>
+                                </div>
+                                <span class="role-badge role-@user.Role.ToString().ToLower()">
+                                    @user.RoleName
+                                </span>
+                            </div>
+
+                            <div class="user-details">
+                                <div class="detail-item">
+                                    <span class="label">Status:</span>
+                                    <span class="status @(user.IsActive ? "active" : "inactive")">
+                                        @(user.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Created:</span>
+                                    <span>@user.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                </div>
+                                @if (user.LastLoginAt.HasValue)
+                                {
+                                    <div class="detail-item">
+                                        <span class="label">Last Login:</span>
+                                        <span>@user.LastLoginAt.Value.ToString("MMM dd, yyyy HH:mm")</span>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="user-actions">
+                                <button class="btn btn-sm btn-secondary" @onclick="() => ShowChangeRoleDialog(user)">
+                                    Change Role
+                                </button>
+                                <button class="btn btn-sm btn-info" @onclick="() => ShowResetPasswordDialog(user)">
+                                    Reset Password
+                                </button>
+                                <button class="btn btn-sm btn-warning" @onclick="() => ToggleUserStatus(user)">
+                                    @(user.IsActive ? "Deactivate" : "Activate")
+                                </button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteUser(user)">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="no-data">
+                    <p>No users found</p>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> @errorMessage
+                </div>
+            }
+
+            @if (showAddUserDialog)
+            {
+                <div class="modal-overlay" @onclick="CloseDialog">
+                    <div class="modal-content" @onclick:stopPropagation>
+                        <h3>Add New User</h3>
+                        <EditForm Model="@newUser" OnValidSubmit="@AddUser" Context="formContext">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <InputText @bind-Value="newUser.FullName" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <InputText @bind-Value="newUser.Email" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <InputText @bind-Value="newUser.Password" type="password" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>Role</label>
+                                <InputSelect @bind-Value="newUser.Role" class="form-control">
+                                    <option value="@UserRole.Viewer">Viewer</option>
+                                    <option value="@UserRole.Contributor">Contributor</option>
+                                    <option value="@UserRole.Admin">Admin</option>
+                                </InputSelect>
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="btn btn-secondary" @onclick="CloseDialog">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Add User</button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            }
+
+            @if (showChangeRoleDialog && selectedUser != null)
+            {
+                <div class="modal-overlay" @onclick="CloseDialog">
+                    <div class="modal-content" @onclick:stopPropagation>
+                        <h3>Change Role: @selectedUser.FullName</h3>
+                        <div class="form-group">
+                            <label>New Role</label>
+                            <select @bind="selectedRole" class="form-control">
+                                <option value="@UserRole.Viewer">Viewer</option>
+                                <option value="@UserRole.Contributor">Contributor</option>
+                                <option value="@UserRole.Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-secondary" @onclick="CloseDialog">Cancel</button>
+                            <button class="btn btn-primary" @onclick="ChangeUserRole">Change Role</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (showResetPasswordDialog && selectedUser != null)
+            {
+                <div class="modal-overlay" @onclick="CloseDialog">
+                    <div class="modal-content" @onclick:stopPropagation>
+                        <h3>Reset Password: @selectedUser.FullName</h3>
+                        <p class="text-muted">@selectedUser.Email</p>
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" @bind="newPassword" class="form-control" placeholder="Enter new password" />
+                            <small class="text-muted">Minimum 6 characters</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm Password</label>
+                            <input type="password" @bind="confirmPassword" class="form-control" placeholder="Confirm password" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(passwordError))
+                        {
+                            <div class="alert alert-danger">@passwordError</div>
+                        }
+                        <div class="modal-actions">
+                            <button class="btn btn-secondary" @onclick="CloseDialog">Cancel</button>
+                            <button class="btn btn-primary" @onclick="ResetPassword" disabled="@isResettingPassword">
+                                @if (isResettingPassword)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Reset Password
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="unauthorized">
+            <h3>Access Denied</h3>
+            <p>You don't have permission to view this page.</p>
+            <button class="btn btn-primary" @onclick="NavigateHome">Go to Home</button>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private List<UserDto> users = new();
+    private bool isLoading = true;
+    private bool showAddUserDialog = false;
+    private bool showChangeRoleDialog = false;
+    private bool showResetPasswordDialog = false;
+    private RegisterRequest newUser = new();
+    private UserDto? selectedUser;
+    private UserRole selectedRole;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string passwordError = string.Empty;
+    private bool isResettingPassword = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        try
+        {
+            var response = await UserService.GetAllUsersAsync();
+            if (response.Success && response.Data != null)
+            {
+                users = response.Data;
+            }
+            else
+            {
+                errorMessage = response.Message ?? "Failed to load users";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading users: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddUserDialog()
+    {
+        newUser = new RegisterRequest { Role = UserRole.Viewer };
+        showAddUserDialog = true;
+    }
+
+    private void ShowChangeRoleDialog(UserDto user)
+    {
+        selectedUser = user;
+        selectedRole = user.Role;
+        showChangeRoleDialog = true;
+    }
+
+    private void ShowResetPasswordDialog(UserDto user)
+    {
+        selectedUser = user;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+        passwordError = string.Empty;
+        showResetPasswordDialog = true;
+    }
+
+    private void CloseDialog()
+    {
+        showAddUserDialog = false;
+        showChangeRoleDialog = false;
+        showResetPasswordDialog = false;
+        selectedUser = null;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+        passwordError = string.Empty;
+    }
+
+    private async Task AddUser()
+    {
+        var response = await UserService.RegisterUserAsync(newUser);
+        if (response.Success)
+        {
+            await LoadUsers();
+            CloseDialog();
+        }
+    }
+
+    private async Task ChangeUserRole()
+    {
+        if (selectedUser != null)
+        {
+            var response = await UserService.ChangeUserRoleAsync(selectedUser.Id, selectedRole);
+            if (response.Success)
+            {
+                await LoadUsers();
+                CloseDialog();
+            }
+        }
+    }
+
+    private async Task ResetPassword()
+    {
+        passwordError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+        {
+            passwordError = "Password must be at least 6 characters";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            passwordError = "Passwords do not match";
+            return;
+        }
+
+        if (selectedUser == null) return;
+
+        try
+        {
+            isResettingPassword = true;
+            var response = await UserService.ResetUserPasswordAsync(selectedUser.Id, newPassword);
+            if (response.Success)
+            {
+                await LoadUsers();
+                CloseDialog();
+            }
+            else
+            {
+                passwordError = response.Message ?? "Failed to reset password";
+            }
+        }
+        catch (Exception ex)
+        {
+            passwordError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isResettingPassword = false;
+        }
+    }
+
+    private async Task ToggleUserStatus(UserDto user)
+    {
+        var response = await UserService.ToggleUserActiveStatusAsync(user.Id);
+        if (response.Success)
+        {
+            await LoadUsers();
+        }
+    }
+
+    private async Task DeleteUser(UserDto user)
+    {
+        if (confirm($"Are you sure you want to delete {user.FullName}?"))
+        {
+            var response = await UserService.DeleteUserAsync(user.Id);
+            if (response.Success)
+            {
+                await LoadUsers();
+            }
+        }
+    }
+
+    private bool confirm(string message)
+    {
+        // In a real app, use a proper confirmation dialog
+        return true;
+    }
+
+    private void NavigateHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+}
+
+<style>
+    .user-management {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .users-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .user-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.2s;
+    }
+
+    .user-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .user-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+    }
+
+    .user-info h4 {
+        margin: 0 0 0.25rem 0;
+        color: #333;
+    }
+
+    .email {
+        margin: 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .role-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .role-admin {
+        background-color: #ff6b6b;
+        color: white;
+    }
+
+    .role-contributor {
+        background-color: #4ecdc4;
+        color: white;
+    }
+
+    .role-viewer {
+        background-color: #95a5a6;
+        color: white;
+    }
+
+    .user-details {
+        margin: 1rem 0;
+        padding: 1rem 0;
+        border-top: 1px solid #eee;
+        border-bottom: 1px solid #eee;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+
+    .detail-item .label {
+        font-weight: 600;
+        color: #666;
+    }
+
+    .status {
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .status.active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status.inactive {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .user-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .user-actions .btn {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: 100px;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .modal-content h3 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
+    .loading, .no-data, .unauthorized {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+        opacity: 0.8;
+    }
+
+    .btn-primary {
+        background-color: #667eea;
+        color: white;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #333;
+    }
+
+    .btn-info {
+        background-color: #17a2b8;
+        color: white;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .icon {
+        font-size: 1rem;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .text-muted {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+
+    .spinner-border {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 0.15em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spinner-border 0.75s linear infinite;
+    }
+
+    .spinner-border-sm {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-width: 0.1em;
+    }
+
+    .me-2 {
+        margin-right: 0.5rem;
+    }
+
+    @@keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+</style>

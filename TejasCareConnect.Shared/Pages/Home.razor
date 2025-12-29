@@ -1,0 +1,262 @@
+﻿@page "/"
+@using TejasCareConnect.Shared.Services
+@using TejasCareConnect.Shared.Models
+@inject IFormFactor FormFactor
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Home</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="home-container">
+            <div class="welcome-card">
+                <h1>Welcome to TejasCare Connect!</h1>
+                <p class="lead">Hello, <strong>@context.User.Identity?.Name</strong></p>
+                
+                <div class="role-info">
+                    <h3>Your Role: <span class="role-badge">@GetUserRole(context)</span></h3>
+                    <p>@GetRoleDescription(context)</p>
+                </div>
+
+                <div class="permissions-card">
+                    <h4>Your Permissions:</h4>
+                    <ul class="permissions-list">
+                        @if (IsAdmin(context))
+                        {
+                            <li>✅ View all data</li>
+                            <li>✅ Submit and edit data</li>
+                            <li>✅ Manage users and roles</li>
+                            <li>✅ Full administrative access</li>
+                        }
+                        else if (IsContributor(context))
+                        {
+                            <li>✅ View data</li>
+                            <li>✅ Submit and edit data</li>
+                            <li>❌ Cannot manage users</li>
+                        }
+                        else
+                        {
+                            <li>✅ View data only</li>
+                            <li>❌ Cannot submit or edit data</li>
+                            <li>❌ Cannot manage users</li>
+                        }
+                    </ul>
+                </div>
+
+                <div class="quick-actions">
+                    <h4>Quick Actions:</h4>
+                    <div class="action-buttons">
+                        <a href="/weather" class="btn btn-primary">View Data</a>
+                        
+                        @if (IsAdmin(context) || IsContributor(context))
+                        {
+                            <a href="/counter" class="btn btn-success">Submit Data</a>
+                        }
+                        
+                        @if (IsAdmin(context))
+                        {
+                            <a href="/users" class="btn btn-warning">Manage Users</a>
+                        }
+                    </div>
+                </div>
+
+                <div class="platform-info">
+                    <p><small>Running on <em>@factor</em> using <em>@platform</em></small></p>
+                </div>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="unauthorized-container">
+            <div class="unauthorized-card">
+                <h1>Welcome to TejasCare Connect</h1>
+                <p>Please log in to access the application.</p>
+                <a href="/login" class="btn btn-primary btn-lg">Login</a>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string factor => FormFactor.GetFormFactor();
+    private string platform => FormFactor.GetPlatform();
+
+    private string GetUserRole(AuthenticationState context)
+    {
+        return context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Unknown";
+    }
+
+    private string GetRoleDescription(AuthenticationState context)
+    {
+        var role = GetUserRole(context);
+        return role switch
+        {
+            "Admin" => "You have full control over the application, including user management and all features.",
+            "Contributor" => "You can submit data and perform actions, but cannot manage users.",
+            "Viewer" => "You have read-only access to view data.",
+            _ => "Unknown role"
+        };
+    }
+
+    private bool IsAdmin(AuthenticationState context)
+    {
+        return GetUserRole(context) == "Admin";
+    }
+
+    private bool IsContributor(AuthenticationState context)
+    {
+        return GetUserRole(context) == "Contributor";
+    }
+}
+
+<style>
+    .home-container, .unauthorized-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh;
+        padding: 2rem;
+    }
+
+    .welcome-card, .unauthorized-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-width: 800px;
+        width: 100%;
+    }
+
+    .welcome-card h1 {
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+
+    .lead {
+        font-size: 1.25rem;
+        margin-bottom: 2rem;
+        color: #666;
+    }
+
+    .role-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .role-info h3 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .role-info p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .role-badge {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 1rem;
+    }
+
+    .permissions-card {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .permissions-card h4 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .permissions-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .permissions-list li {
+        padding: 0.5rem 0;
+        font-size: 1.1rem;
+    }
+
+    .quick-actions {
+        margin-bottom: 2rem;
+    }
+
+    .quick-actions h4 {
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        display: inline-block;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-primary {
+        background-color: #667eea;
+        color: white;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .btn-warning {
+        background-color: #ffc107;
+        color: #333;
+    }
+
+    .btn-lg {
+        padding: 1rem 2rem;
+        font-size: 1.25rem;
+    }
+
+    .platform-info {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #ddd;
+        text-align: center;
+        color: #999;
+    }
+
+    .unauthorized-card {
+        text-align: center;
+    }
+
+    .unauthorized-card h1 {
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+
+    .unauthorized-card p {
+        font-size: 1.1rem;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+</style>
