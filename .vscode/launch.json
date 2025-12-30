@@ -1,0 +1,49 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MAUI Windows (with API)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "Start Web API",
+            "program": "${workspaceFolder}/TejasCareConnect/TejasCareConnect/bin/Debug/net9.0-windows10.0.19041.0/win10-x64/TejasCareConnect.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/TejasCareConnect/TejasCareConnect",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "requireExactSource": false
+        },
+        {
+            "name": "Web API Only",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/TejasCareConnect/TejasCareConnect.Web/bin/Debug/net9.0/TejasCareConnect.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/TejasCareConnect/TejasCareConnect.Web",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Run MAUI + Web API",
+            "configurations": ["Web API Only"],
+            "preLaunchTask": "build-maui",
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            },
+            "stopAll": true
+        }
+    ]
+}
