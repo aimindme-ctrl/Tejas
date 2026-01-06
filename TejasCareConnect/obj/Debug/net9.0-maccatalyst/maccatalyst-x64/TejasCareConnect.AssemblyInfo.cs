@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TejasCareConnect")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+f785b8dd1f02e522107633730034fe0c25d4f36c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+d4f21be974123dc4a438ff960d111de2fc035d86")]
 [assembly: System.Reflection.AssemblyProductAttribute("TejasCareConnect")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TejasCareConnect")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

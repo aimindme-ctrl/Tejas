@@ -17,6 +17,34 @@
                 </button>
             </div>
 
+            <!-- Quick Add Viewer -->
+            <div class="quick-add-section">
+                <h4>Quick Add Viewer</h4>
+                <div class="quick-add-form">
+                    <div class="form-row">
+                        <input type="text" @bind="quickViewerName" class="form-control" placeholder="Full Name" />
+                        <input type="email" @bind="quickViewerEmail" class="form-control" placeholder="Email" />
+                        <input type="password" @bind="quickViewerPassword" class="form-control" placeholder="Password (min 6 chars)" />
+                        <button class="btn btn-success" @onclick="QuickAddViewer" disabled="@isAddingViewer">
+                            @if (isAddingViewer)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            else
+                            {
+                                <span>Add Viewer</span>
+                            }
+                        </button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(quickAddMessage))
+                    {
+                        <div class="alert @(quickAddSuccess ? "alert-success" : "alert-danger") mt-2">
+                            @quickAddMessage
+                        </div>
+                    }
+                </div>
+            </div>
+
             @if (isLoading)
             {
                 <div class="loading">
@@ -208,9 +236,81 @@
     private bool isResettingPassword = false;
     private string errorMessage = string.Empty;
 
+    // Quick Add Viewer fields
+    private string quickViewerName = string.Empty;
+    private string quickViewerEmail = string.Empty;
+    private string quickViewerPassword = string.Empty;
+    private bool isAddingViewer = false;
+    private string quickAddMessage = string.Empty;
+    private bool quickAddSuccess = false;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadUsers();
+    }
+
+    private async Task QuickAddViewer()
+    {
+        quickAddMessage = string.Empty;
+        quickAddSuccess = false;
+
+        if (string.IsNullOrWhiteSpace(quickViewerName))
+        {
+            quickAddMessage = "Please enter a full name";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(quickViewerEmail))
+        {
+            quickAddMessage = "Please enter an email";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(quickViewerPassword) || quickViewerPassword.Length < 6)
+        {
+            quickAddMessage = "Password must be at least 6 characters";
+            return;
+        }
+
+        isAddingViewer = true;
+        try
+        {
+            var request = new RegisterRequest
+            {
+                FullName = quickViewerName.Trim(),
+                Email = quickViewerEmail.Trim().ToLower(),
+                Password = quickViewerPassword,
+                Role = UserRole.Viewer
+            };
+
+            var response = await UserService.RegisterUserAsync(request);
+            
+            if (response.Success)
+            {
+                quickAddSuccess = true;
+                quickAddMessage = $"Viewer '{quickViewerName}' added successfully!";
+                
+                // Clear the form
+                quickViewerName = string.Empty;
+                quickViewerEmail = string.Empty;
+                quickViewerPassword = string.Empty;
+                
+                // Reload users list
+                await LoadUsers();
+            }
+            else
+            {
+                quickAddMessage = response.Message ?? "Failed to add viewer";
+            }
+        }
+        catch (Exception ex)
+        {
+            quickAddMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isAddingViewer = false;
+        }
     }
 
     private async Task LoadUsers()
@@ -382,6 +482,77 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 2rem;
+    }
+
+    .quick-add-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .quick-add-section h4 {
+        color: white;
+        margin-top: 0;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+    }
+
+    .quick-add-form {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 2fr 2fr 2fr 1fr;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .quick-add-form .form-control {
+        background: white;
+        border: none;
+        padding: 0.75rem;
+        border-radius: 6px;
+        font-size: 0.95rem;
+    }
+
+    .quick-add-form .form-control::placeholder {
+        color: #999;
+    }
+
+    .quick-add-form .btn-success {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
+
+    .quick-add-form .btn-success:hover:not(:disabled) {
+        background: #218838;
+    }
+
+    .quick-add-form .btn-success:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .quick-add-form .alert {
+        margin-top: 1rem;
+        margin-bottom: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
     }
 
     .users-grid {
