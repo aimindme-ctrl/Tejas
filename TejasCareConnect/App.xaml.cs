@@ -17,30 +17,19 @@ public partial class App : Application
         _loadingPage = new LoadingPage();
         _mainWindow = new Window(_loadingPage) { Title = "TejasCareConnect" };
 
-        // Start API in background
+        // Check for API in background
         Task.Run(async () =>
         {
             try
             {
-                _loadingPage.UpdateStatus("Starting Web API (this may take 30-60 seconds)...");
-                
-                // Show progress updates
-                var progressTask = Task.Run(async () =>
-                {
-                    for (int i = 0; i < 90; i++)
-                    {
-                        await Task.Delay(1000);
-                        var seconds = i + 1;
-                        _loadingPage.UpdateStatus($"Starting Web API... ({seconds} seconds)");
-                    }
-                });
+                _loadingPage.UpdateStatus("Checking for Web API...");
                 
                 var apiReady = await ApiLauncher.EnsureApiIsRunningAsync();
                 
                 if (apiReady)
                 {
                     _loadingPage.UpdateStatus("Web API ready! Loading application...");
-                    await Task.Delay(500); // Brief pause
+                    await Task.Delay(500);
                     
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
@@ -53,12 +42,12 @@ public partial class App : Application
                 else
                 {
                     _loadingPage.ShowError(
-                        "Failed to start the Web API after 90 seconds.\n\n" +
-                        "Please check:\n" +
-                        "1. .NET SDK is installed\n" +
-                        "2. Port 5088 is not in use\n" +
-                        "3. Check the console window for errors\n" +
-                        "4. Try manually starting the Web API first");
+                        "Web API is not running!\n\n" +
+                        "Please start the Web API first:\n\n" +
+                        "1. Open PowerShell\n" +
+                        "2. Navigate to: TejasCareConnect.Web\n" +
+                        "3. Run: dotnet run --launch-profile http\n\n" +
+                        "Or use the VS Code launch configuration.");
                 }
             }
             catch (Exception ex)
